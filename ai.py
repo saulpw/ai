@@ -103,9 +103,13 @@ def main_embed(*args):
             emb = vstore.get(w, source=f'{fn}:{line}')
 
 
-def main_query(query):
+def main_query(*args):
+    q = ' '.join(args)
+    if not q:
+        q = sys.stdin.read()
+
     vstore = VectorStore(fn_embeddings)
-    qemb = vstore.get(query, source='')
+    qemb = vstore.get(q, source='')
 
     similar = []
     for similarity, emb in vstore.find(qemb, n=cfg_topn):
@@ -115,18 +119,29 @@ def main_query(query):
 
     msgs = [system('You are a helpful assistant. This is documentation pertaining to the user query:')]
     msgs.extend(user(emb['text']) for emb in similar)
-    msgs = [system('Answer this user query precisely and concisely, using the above documentation:')]
-    msgs.append(user(query))
+    msgs = [system('Answer this user query about VisiData precisely and concisely, using the above documentation:')]
+    msgs.append(user(q))
 
     import openai
     resp = openai.ChatCompletion.create(messages=msgs, model=cfg_chatmodel)
+    stderr(resp['usage'])
     stderr(resp['usage'])
 
     return resp['choices'][0]['message']['content']
 
 
-def main_chat(q):
+def main_chat(*args):
     import openai
+    q = ' '.join(args)
+    resp = openai.ChatCompletion.create(messages=[user(q)], model=cfg_chatmodel)
+    stderr(resp['usage'])
+
+    return resp['choices'][0]['message']['content']
+
+
+def main_multichat(*args):
+    import openai
+    q = ' '.join(args)
     resp = openai.ChatCompletion.create(messages=[user(q)], model=cfg_chatmodel)
     stderr(resp['usage'])
 
@@ -149,4 +164,5 @@ def main(cmd='', *args):
         print(str(r))
 
 
-main(*sys.argv[1:])
+if __name__ == '__main__':
+    main(*sys.argv[1:])
